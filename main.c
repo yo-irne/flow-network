@@ -1,6 +1,8 @@
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MAX_VERTICES 100
 #define MAX_EDGES 500
@@ -35,11 +37,15 @@ void initGraph(struct Graph *g, int vertices, int source, int sink) {
 }
 
 void addEdge(struct Graph *g, int from, int to, int capacity) {
-  int i = g->edges;
-  g->edge[i].from = from;
-  g->edge[i].to = to;
-  g->edge[i].capacity = capacity;
-  g->edges++;
+  if (from <= g->vertices && to <= g->vertices) {
+    int i = g->edges;
+    g->edge[i].from = from;
+    g->edge[i].to = to;
+    g->edge[i].capacity = capacity;
+    g->edges++;
+  } else {
+    printf("Error: Invalid vertices. \n");
+  }
 }
 
 void removeEdge(struct Graph *g, int edgeIndex) {
@@ -64,9 +70,18 @@ void removeEdge(struct Graph *g, int edgeIndex) {
   }
 }
 
+void addVertex(struct Graph *g, int vertex) { g->vertices++; }
+
 void removeVertex(struct Graph *g, int vertex) {
-  if (vertex < 0 || vertex >= g->vertices) {
+  if (vertex <= 0 || vertex > g->vertices) {
     printf("Error: Invalid vertex %d\n", vertex);
+    return;
+  }
+  if (vertex == g->source) {
+    printf("Warning: Change source in order to remove this vertex. \n");
+    return;
+  } else if (vertex == g->sink) {
+    printf("Warning: Change sink in order to remove this vertex. \n");
     return;
   }
   int i;
@@ -104,6 +119,12 @@ void changeCapacity(struct Graph *g, int edgeIndex, int newCapacity) {
   }
 }
 
+int getFrom(struct Graph *g, int id) { return g->edge[id].from; }
+
+int getTo(struct Graph *g, int id) { return g->edge[id].to; }
+
+int getCap(struct Graph *g, int id) { return g->edge[id].capacity; }
+
 int checkEdgeExists(struct Graph *g, int from, int to) {
   for (int i = 0; i < g->edges; i++) {
     if (g->edge[i].from == from && g->edge[i].to == to) {
@@ -114,7 +135,7 @@ int checkEdgeExists(struct Graph *g, int from, int to) {
 }
 
 void changeSource(struct Graph *g, int newSource) {
-  if (newSource < 0 || newSource >= g->vertices) {
+  if (newSource <= 0 || newSource > g->vertices) {
     printf("Error: Invalid new source %d\n", newSource);
     return;
   }
@@ -122,7 +143,7 @@ void changeSource(struct Graph *g, int newSource) {
 }
 
 void changeSink(struct Graph *g, int newSink) {
-  if (newSink < 0 || newSink >= g->vertices) {
+  if (newSink <= 0 || newSink > g->vertices) {
     printf("Error: Invalid new sink %d\n", newSink);
     return;
   }
@@ -131,90 +152,149 @@ void changeSink(struct Graph *g, int newSink) {
 
 int min(int a, int b) { return a < b ? a : b; }
 
-bool BFS(struct Graph *g) {
-  int i, j;
-  for (i = 0; i < g->vertices; i++) {
-    level[i] = -1;
-  }
+int bfs(struct Graph *g, int *parent) {
+  memset(level, -1, sizeof(level));
   level[g->source] = 0;
-  int q[g->vertices], qh = 0, qt = 0;
-  q[qt++] = g->source;
-  while (qh != qt) {
-    int u = q[qh++];
+  int u, v;
+  int i, e;
+  int queue[MAX_VERTICES];
+  int head = 0;
+  int tail = 0;
+  queue[tail++] = g->source;
+  while (head != tail) {
+    u = queue[head++];
     for (i = 0; i < g->edges; i++) {
-      struct Edge e = g->edge[i];
-      if (e.capacity > 0 && e.from == u && level[e.to] < 0) {
-        level[e.to] = level[u] + 1;
-        q[qt++] = e.to;
+      e = g->edge[i].to;
+      if (g->edge[i].from == u && level[e] == -1 &&
+          g->edge[i].capacity - g->edge[i].flow > 0) {
+        level[e] = level[u] + 1;
+        queue[tail++] = e;
       }
     }
   }
-  return level[g->sink] >= 0;
+  return level[g->sink] != -1;
 }
 
-int sendFlow(struct Graph *g, int u, int flow) {
-  if (u == g->sink) {
+int dfs(struct Graph *g, int u, int flow, int *parent) {
+  if (u == g->sink)
     return flow;
-  }
-  int i;
+  int v;
+  int i, e;
+  int delta;
   for (i = 0; i < g->edges; i++) {
-    struct Edge e = g->edge[i];
-    if (e.capacity > 0 && e.from == u && level[e.to] == level[u] + 1) {
-      int t = sendFlow(g, e.to, min(flow, e.capacity));
-      if (t > 0) {
-        e.capacity -= t;
-        g->edge[i ^ 1].capacity += t;
-        return t;
+    e = g->edge[i].to;
+    if (g->edge[i].from == u && level[e] == level[u] + 1 &&
+        g->edge[i].capacity - g->edge[i].flow > 0) {
+      delta =
+          dfs(g, e, fmin(flow, g->edge[i].capacity - g->edge[i].flow), parent);
+      if (delta > 0) {
+        g->edge[i].flow += delta;
+        for (int j = 0; j < g->edges; j++) {
+          if (g->edge[j].to == u && g->edge[j].from == e) {
+            g->edge[j].flow -= delta;
+            break;
+          }
+        }
+        return delta;
       }
     }
   }
   return 0;
 }
 
-int Dinic(struct Graph *g) {
-  int result = 0;
-  while (BFS(g)) {
-    //printf(".");
-    int flow = 0;
-    while ((flow = sendFlow(g, g->source, INT_MAX)) != 0) {
-      //printf(".");
-      result += flow;
+int maxFlow(struct Graph *g) {
+  int parent[MAX_VERTICES];
+  int flow = 0;
+  int delta;
+  while (bfs(g, parent)) {
+    while ((delta = dfs(g, g->source, INT_MAX, parent)) > 0) {
+      flow += delta;
     }
   }
-  return result;
+  return flow;
 }
 
 void printGraph(struct Graph g) {
   printf("\n[%d]: (%d) ===> (%d)\n", g.vertices, g.source, g.sink);
   int i;
+  if(g.edges > 0) printf("------------------\n");
   for (i = 0; i < g.edges; i++) {
-    printf("%d: %d ---> %d [%d]\n", i, g.edge[i].from, g.edge[i].to, g.edge[i].capacity);
+    printf("%d: %d ---> %d [%d]\n", i, g.edge[i].from, g.edge[i].to,
+           g.edge[i].capacity);
   }
+  printf("\n");
 }
 
 int main() {
   struct Graph g;
-  // int v, s, t;
-  // scanf("%d %d %d", &v, &s, &t);
-  initGraph(&g, 5, 1, 5);
+  int vertices, source, sink;
 
-  addEdge(&g, 1, 2, 10);
-  addEdge(&g, 1, 4, 9);
-  // removeEdge(&g, 0);
-  addEdge(&g, 2, 4, 5);
-  addEdge(&g, 3, 5, 3);
-  
-  printGraph(g);
+  printf("\n|V(G)| = ");
+  scanf("%d", &vertices);
+  printf("Source: ");
+  scanf("%d", &source);
+  printf("Sink: ");
+  scanf("%d", &sink);
+  printf("\n");
+  initGraph(&g, vertices, source, sink);
 
-  printf("\n\n\n");
+  while (true) {
+    int from, to, capacity, id;
+    char command[20];
 
-  //removeVertex(&g, 4);
-  changeCapacity(&g, 0, 5);
-  changeSource(&g, 3);
-  //changeSink(&g, 5);
-  //printf("%d %d \n\n", checkEdgeExists(&g, 3, 5), checkEdgeExists(&g, 3, 4));
-  printGraph(g);
+    printf("~/$  ");
+    scanf("%s", command);
 
-  printf("\n%d\n", Dinic(&g));
+    if (strcmp(command, "edge") == 0) {
+      scanf("%d %d %d", &from, &to, &capacity);
+      addEdge(&g, from, to, capacity);
+      if (checkEdgeExists(&g, from, to) != -1)
+        printf("\nNew edge: %d: %d ---> %d [%d] \n\n",
+               checkEdgeExists(&g, from, to), from, to, capacity);
+    } else if (strcmp(command, "rme") == 0) {
+      scanf("%d", &id);
+      removeEdge(&g, id);
+      if (checkEdgeExists(&g, from, to) != -1)
+        printf("\nRemoved: %d: %d ---> %d [%d] \n\n", id, getFrom(&g, id),
+               getTo(&g, id), getCap(&g, id));
+    } else if (strcmp(command, "rmv") == 0) {
+      scanf("%d", &id);
+      if (id > 0 && id <= vertices && id != g.sink && id != g.source)
+        printf("\nRemoved: Node %d \n\n", id);
+      removeVertex(&g, id);
+    } else if (strcmp(command, "cap") == 0) {
+      scanf("%d %d", &id, &capacity);
+      changeCapacity(&g, id, capacity);
+      if (checkEdgeExists(&g, from, to) != -1)
+        printf("\nEdge %d has now the capacity of %d \n\n", id, capacity);
+    } else if (strcmp(command, "src") == 0) {
+      scanf("%d", &id);
+      changeSource(&g, id);
+      if (id > 0 && id <= vertices)
+        printf("\nNew source: %d\n\n", id);
+    } else if (strcmp(command, "sink") == 0) {
+      scanf("%d", &id);
+      changeSink(&g, id);
+      if (id > 0 && id <= vertices)
+        printf("\nNew sink: %d\n\n", id);
+    } else if (strcmp(command, "check") == 0) {
+      scanf("%d %d", &from, &to);
+      int index = checkEdgeExists(&g, from, to);
+      if (index >= 0) {
+        printf("\nEdge exists with index %d:\n", index);
+        printf("%d: %d ---> %d [%d] \n\n", index, from, to, getCap(&g, index));
+      } else {
+        printf("\nEdge does not exist \n\n");
+      }
+    } else if (strcmp(command, "print") == 0) {
+      printGraph(g);
+    } else if(strcmp(command, "flow") == 0) {
+      printf("\nMax flow: %d \n\n", maxFlow(&g));
+    } else if (strcmp(command, "exit") == 0) {
+      break;
+    } else {
+      printf("\nError: Invalid command\n\n");
+    }
+  }
   return 0;
 }
