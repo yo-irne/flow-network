@@ -217,7 +217,8 @@ int maxFlow(struct Graph *g) {
 void printGraph(struct Graph g) {
   printf("\n[%d]: (%d) ===> (%d)\n", g.vertices, g.source, g.sink);
   int i;
-  if(g.edges > 0) printf("------------------\n");
+  if (g.edges > 0)
+    printf("------------------\n");
   for (i = 0; i < g.edges; i++) {
     printf("%d: %d ---> %d [%d]\n", i, g.edge[i].from, g.edge[i].to,
            g.edge[i].capacity);
@@ -237,7 +238,7 @@ int main() {
   scanf("%d", &sink);
   printf("\n");
   initGraph(&g, vertices, source, sink);
-
+  
   while (true) {
     int from, to, capacity, id;
     char command[20];
@@ -245,7 +246,16 @@ int main() {
     printf("~/$  ");
     scanf("%s", command);
 
-    if (strcmp(command, "edge") == 0) {
+    if (strcmp(command, "init") == 0 || strcmp(command, "clear") == 0) {
+      printf("\n|V(G)| = ");
+      scanf("%d", &vertices);
+      printf("Source: ");
+      scanf("%d", &source);
+      printf("Sink: ");
+      scanf("%d", &sink);
+      printf("\n");
+      initGraph(&g, vertices, source, sink);
+    } else if (strcmp(command, "edge") == 0) {
       scanf("%d %d %d", &from, &to, &capacity);
       addEdge(&g, from, to, capacity);
       if (checkEdgeExists(&g, from, to) != -1)
@@ -288,9 +298,9 @@ int main() {
       }
     } else if (strcmp(command, "print") == 0) {
       printGraph(g);
-    } else if(strcmp(command, "flow") == 0) {
+    } else if (strcmp(command, "flow") == 0) {
       printf("\nMax flow: %d \n\n", maxFlow(&g));
-    } else if(strcmp(command, "help") == 0) {
+    } else if (strcmp(command, "help") == 0) {
       printf("\nCommands:\n");
       printf("----------------\n");
       printf("\tedge [f] [t] [c] - add an edge from f to t of capacity c\n");
@@ -299,11 +309,16 @@ int main() {
       printf("\trmv [n] - remove vertex no. n\n");
       printf("\tsrc [n] - change source to the vertex no. n\n");
       printf("\tsink [n] - change sink to the vertex no. n\n");
+      printf("\tflow - run Edmonds-Karp algorithm to measure maximal flow in "
+             "the network\n");
 
-      printf("\n\tprint - prints graph\n\t\t important to note: \n\t\t\t index: from ---> to [capacity] \n\t\t\t [vertices]: source ===> sink\n");
-      
-      printf("\n\thelp - show this screen\n");
-      printf("\texit - leave application\n");
+      printf(
+          "\n\tprint - prints graph\n\t\t important to note: \n\t\t\t index: "
+          "from ---> to [capacity] \n\t\t\t [vertices]: source ===> sink\n");
+
+      printf("\n\tclear|init - restart everything and initialise new graph\n");
+      printf("\thelp - show this screen\n");
+      printf("\texit - leave application\n\n");
     } else if (strcmp(command, "exit") == 0) {
       break;
     } else {
