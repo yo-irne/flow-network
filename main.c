@@ -290,6 +290,20 @@ int main() {
       printGraph(g);
     } else if(strcmp(command, "flow") == 0) {
       printf("\nMax flow: %d \n\n", maxFlow(&g));
+    } else if(strcmp(command, "help") == 0) {
+      printf("\nCommands:\n");
+      printf("----------------\n");
+      printf("\tedge [f] [t] [c] - add an edge from f to t of capacity c\n");
+      printf("\trme [i] - remove edge with an index i\n");
+      printf("\tcap [i] - change capacity of an edge i\n");
+      printf("\trmv [n] - remove vertex no. n\n");
+      printf("\tsrc [n] - change source to the vertex no. n\n");
+      printf("\tsink [n] - change sink to the vertex no. n\n");
+
+      printf("\n\tprint - prints graph\n\t\t important to note: \n\t\t\t index: from ---> to [capacity] \n\t\t\t [vertices]: source ===> sink\n");
+      
+      printf("\n\thelp - show this screen\n");
+      printf("\texit - leave application\n");
     } else if (strcmp(command, "exit") == 0) {
       break;
     } else {
